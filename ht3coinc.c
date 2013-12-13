@@ -1,6 +1,4 @@
-// hydraharp ht3 reader
-// by picoquant, adapted for GNU and additional features by dheera@mit.edu
-// documentation to be written ...
+// hydraharp ht3 coincidence finder
 #include<stdio.h>
 #include<string.h>
 #include<stddef.h>

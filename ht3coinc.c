@@ -1,4 +1,6 @@
-// hydraharp ht3 coincidence finder
+// hydraharp ht3 reader
+// by picoquant, adapted for GNU and additional features by dheera@mit.edu
+// documentation to be written ...
 #include<stdio.h>
 #include<string.h>
 #include<stddef.h>
@@ -139,7 +141,10 @@ struct {
 int main(int argc, char* argv[]) {
   int result;
   FILE* fpin;
-  FILE* fpout; 	
+  FILE* fpout_coinc; 	
+  FILE* fpout_ch0;	
+  FILE* fpout_ch1;
+  FILE* fpout_info;
   int i;
   tT3Rec T3Rec;
   unsigned long long int lastmarker[20]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
@@ -148,9 +153,12 @@ int main(int argc, char* argv[]) {
   unsigned long long int marker_total=0;
   unsigned long long int dtime_total=0;
 
-  int print_headers=0; // print headers or not
   char infile[512];
-  char outfile[512];
+  char* pch;
+  char outfile_coinc[512];
+  char outfile_ch0[512];
+  char outfile_ch1[512];
+  char outfile_info[512];
 
   unsigned long long int last_signal_nsync=-1;
   unsigned long long int last_idler_nsync=-1;
@@ -161,41 +169,69 @@ int main(int argc, char* argv[]) {
   unsigned long long int total_idler=0;
   unsigned long long int total_coincidences=0;
 
-  if(argc<3) {
-    fprintf(stderr,"usage: ht3coinc infile.ht3 oufile.txt\n");
+  if(argc<2) {
+    fprintf(stderr,"usage: ht3coinc infile.ht3\n");
     exit(-1);
   }
 
-  if((fpin=fopen(argv[argc-2],"rb"))==NULL) {
-    fprintf(stderr,"error: input file cannot be opened, aborting.\n");
-    exit(1);
-  }
-	
-  if((fpout=fopen(argv[argc-1],"w"))==NULL) {
-    fprintf(stderr,"error: output file cannot be opened, aborting.\n");
+  strncpy(infile,argv[argc-1],sizeof(outfile_coinc));
+
+  strncpy(outfile_info,argv[argc-1],sizeof(outfile_info));
+  pch=strstr(outfile_info,".ht3");
+  strcpy(pch,".info.txt");
+
+  strncpy(outfile_coinc,argv[argc-1],sizeof(outfile_coinc));
+  pch=strstr(outfile_coinc,".ht3");
+  strcpy(pch,".coinc.out");
+
+  strncpy(outfile_ch0,argv[argc-1],sizeof(outfile_ch0));
+  pch=strstr(outfile_ch0,".ht3");
+  strcpy(pch,".ch0.out");
+
+  strncpy(outfile_ch1,argv[argc-1],sizeof(outfile_ch1));
+  pch=strstr(outfile_ch1,".ht3");
+  strcpy(pch,".ch1.out");
+  
+
+  if((fpin=fopen(infile,"rb"))==NULL) {
+    fprintf(stderr,"error: input file %s cannot be opened, aborting.\n",infile);
     exit(1);
   }
 
-  fprintf(stdout,"Loading data from %s ...\n", argv[argc-2]);
-  fprintf(stdout,"Writing output to %s ...\n", argv[argc-1]);
+  if((fpout_info=fopen(outfile_info,"w"))==NULL) {
+    fprintf(stderr,"error: output file %s cannot be opened, aborting.\n",outfile_info);
+    exit(1);
+  }
+	
+  if((fpout_coinc=fopen(outfile_coinc,"w"))==NULL) {
+    fprintf(stderr,"error: output file %s cannot be opened, aborting.\n",outfile_coinc);
+    exit(1);
+  }
+
+  if((fpout_ch0=fopen(outfile_ch0,"w"))==NULL) {
+    fprintf(stderr,"error: output file %s cannot be opened, aborting.\n",outfile_ch0);
+    exit(1);
+  }
+
+  if((fpout_ch1=fopen(outfile_ch1,"w"))==NULL) {
+    fprintf(stderr,"error: output file %s cannot be opened, aborting.\n",outfile_ch1);
+    exit(1);
+  }
+
   result = fread( &TxtHdr, 1, sizeof(TxtHdr) ,fpin);
   if(result!=sizeof(TxtHdr)) {
     fprintf(stderr,"error: cannot read text header\n");
     exit(1);
   }
-  if(print_headers) {
-    fprintf(fpout,"%% Ident             : %.*s\n",(int)sizeof(TxtHdr.Ident),TxtHdr.Ident);
-    fprintf(fpout,"%% Format Version    : %.*s\n",(int)sizeof(TxtHdr.FormatVersion),TxtHdr.FormatVersion);
-    fprintf(fpout,"%% Creator Name      : %.*s\n",(int)sizeof(TxtHdr.CreatorName),TxtHdr.CreatorName);
-    fprintf(fpout,"%% Creator Version   : %.*s\n",(int)sizeof(TxtHdr.CreatorVersion),TxtHdr.CreatorVersion);
-    fprintf(fpout,"%% Time of Creation  : %.*s\n",(int)sizeof(TxtHdr.FileTime),TxtHdr.FileTime);
-    fprintf(fpout,"%% File Comment      : %.*s\n",(int)sizeof(TxtHdr.CommentField),TxtHdr.CommentField);
-  }
+    fprintf(fpout_info,"%% Ident             : %.*s\n",(int)sizeof(TxtHdr.Ident),TxtHdr.Ident);
+    fprintf(fpout_info,"%% Format Version    : %.*s\n",(int)sizeof(TxtHdr.FormatVersion),TxtHdr.FormatVersion);
+    fprintf(fpout_info,"%% Creator Name      : %.*s\n",(int)sizeof(TxtHdr.CreatorName),TxtHdr.CreatorName);
+    fprintf(fpout_info,"%% Creator Version   : %.*s\n",(int)sizeof(TxtHdr.CreatorVersion),TxtHdr.CreatorVersion);
+    fprintf(fpout_info,"%% Time of Creation  : %.*s\n",(int)sizeof(TxtHdr.FileTime),TxtHdr.FileTime);
+    fprintf(fpout_info,"%% File Comment      : %.*s\n",(int)sizeof(TxtHdr.CommentField),TxtHdr.CommentField);
 
   if(strncmp(TxtHdr.FormatVersion,"1.0",3)&&strncmp(TxtHdr.FormatVersion,"2.0",3)) {
-    if(print_headers) {
-      fprintf(stderr,"error: File format version is %s. This program is for version 1.0 and 2.0 only.\n", TxtHdr.FormatVersion);
-    }
+    fprintf(stderr,"error: File format version is %s. This program is for version 1.0 and 2.0 only.\n", TxtHdr.FormatVersion);
     exit(1);
   }
 
@@ -204,15 +240,13 @@ int main(int argc, char* argv[]) {
     fprintf(stderr,"error: cannot read bin header, aborted.\n");
     exit(1);
   }
-  if(print_headers) {
-    fprintf(fpout,"%% Bits per Record   : %d\n",BinHdr.BitsPerRecord);
-    fprintf(fpout,"%% Measurement Mode  : %d\n",BinHdr.MeasMode);
-    fprintf(fpout,"%% Sub-Mode          : %d\n",BinHdr.SubMode);
-    fprintf(fpout,"%% Binning           : %d\n",BinHdr.Binning);
-    fprintf(fpout,"%% Resolution        : %lf\n",BinHdr.Resolution);
-    fprintf(fpout,"%% Offset            : %d\n",BinHdr.Offset);
-    fprintf(fpout,"%% AcquisitionTime   : %d\n",BinHdr.Tacq);
-  }
+    fprintf(fpout_info,"%% Bits per Record   : %d\n",BinHdr.BitsPerRecord);
+    fprintf(fpout_info,"%% Measurement Mode  : %d\n",BinHdr.MeasMode);
+    fprintf(fpout_info,"%% Sub-Mode          : %d\n",BinHdr.SubMode);
+    fprintf(fpout_info,"%% Binning           : %d\n",BinHdr.Binning);
+    fprintf(fpout_info,"%% Resolution        : %lf\n",BinHdr.Resolution);
+    fprintf(fpout_info,"%% Offset            : %d\n",BinHdr.Offset);
+    fprintf(fpout_info,"%% AcquisitionTime   : %d\n",BinHdr.Tacq);
   // Note: for formal reasons the BinHdr is identical to that of HHD files.  
   // It therefore contains some settings that are not relevant in the TT modes,
   // e.g. the curve display settings. So we do not write them out here.
@@ -223,72 +257,56 @@ int main(int argc, char* argv[]) {
     exit(1);
   }
 
-  if(print_headers) {
-    fprintf(fpout,"%% HardwareIdent     : %.*s\n",(int)sizeof(MainHardwareHdr.HardwareIdent),MainHardwareHdr.HardwareIdent);
-    fprintf(fpout,"%% HardwarePartNo    : %.*s\n",(int)sizeof(MainHardwareHdr.HardwarePartNo),MainHardwareHdr.HardwarePartNo);
-    fprintf(fpout,"%% HardwareSerial    : %d\n",MainHardwareHdr.HardwareSerial);
-    fprintf(fpout,"%% nModulesPresent   : %d\n",MainHardwareHdr.nModulesPresent);
-  }
+    fprintf(fpout_info,"%% HardwareIdent     : %.*s\n",(int)sizeof(MainHardwareHdr.HardwareIdent),MainHardwareHdr.HardwareIdent);
+    fprintf(fpout_info,"%% HardwarePartNo    : %.*s\n",(int)sizeof(MainHardwareHdr.HardwarePartNo),MainHardwareHdr.HardwarePartNo);
+    fprintf(fpout_info,"%% HardwareSerial    : %d\n",MainHardwareHdr.HardwareSerial);
+    fprintf(fpout_info,"%% nModulesPresent   : %d\n",MainHardwareHdr.nModulesPresent);
 
 
   // the following module info is needed for support enquiries only
   for(i=0;i<MainHardwareHdr.nModulesPresent;++i) {
-    if(print_headers) {
-      fprintf(fpout,"%% Moduleinfo[%02d]    : %08x %08x\n",
+      fprintf(fpout_info,"%% Moduleinfo[%02d]    : %08x %08x\n",
         i, MainHardwareHdr.ModuleInfo[i].ModelCode, MainHardwareHdr.ModuleInfo[i].VersionCode);
-    }
   }
 
   //the following are important measurement settings
-  if(print_headers) {
-    fprintf(fpout,"%% BaseResolution    : %lf\n",MainHardwareHdr.BaseResolution);
-    fprintf(fpout,"%% InputsEnabled     : %llu\n",MainHardwareHdr.InputsEnabled);  //actually a bitfield
-    fprintf(fpout,"%% InpChansPresent   : %d\n",MainHardwareHdr.InpChansPresent);
-    fprintf(fpout,"%% RefClockSource    : %d\n",MainHardwareHdr.RefClockSource);
-    fprintf(fpout,"%% ExtDevices        : %x\n",MainHardwareHdr.ExtDevices);     //actually a bitfield	
-    fprintf(fpout,"%% MarkerSettings    : %x\n",MainHardwareHdr.MarkerSettings); //actually a bitfield
-    fprintf(fpout,"%% SyncDivider       : %d\n",MainHardwareHdr.SyncDivider);
-    fprintf(fpout,"%% SyncCFDLevel      : %d\n",MainHardwareHdr.SyncCFDLevel);
-    fprintf(fpout,"%% SyncCFDZeroCross  : %d\n",MainHardwareHdr.SyncCFDZeroCross);
-    fprintf(fpout,"%% SyncOffset        : %d\n",MainHardwareHdr.SyncOffset);
-  }
+    fprintf(fpout_info,"%% BaseResolution    : %lf\n",MainHardwareHdr.BaseResolution);
+    fprintf(fpout_info,"%% InputsEnabled     : %llu\n",MainHardwareHdr.InputsEnabled);  //actually a bitfield
+    fprintf(fpout_info,"%% InpChansPresent   : %d\n",MainHardwareHdr.InpChansPresent);
+    fprintf(fpout_info,"%% RefClockSource    : %d\n",MainHardwareHdr.RefClockSource);
+    fprintf(fpout_info,"%% ExtDevices        : %x\n",MainHardwareHdr.ExtDevices);     //actually a bitfield	
+    fprintf(fpout_info,"%% MarkerSettings    : %x\n",MainHardwareHdr.MarkerSettings); //actually a bitfield
+    fprintf(fpout_info,"%% SyncDivider       : %d\n",MainHardwareHdr.SyncDivider);
+    fprintf(fpout_info,"%% SyncCFDLevel      : %d\n",MainHardwareHdr.SyncCFDLevel);
+    fprintf(fpout_info,"%% SyncCFDZeroCross  : %d\n",MainHardwareHdr.SyncCFDZeroCross);
+    fprintf(fpout_info,"%% SyncOffset        : %d\n",MainHardwareHdr.SyncOffset);
 
 
   for(i=0;i<MainHardwareHdr.InpChansPresent;++i) {
-    if(print_headers) {
-      fprintf(fpout,"%% ---------------------\n");
-    }
+      fprintf(fpout_info,"%% ---------------------\n");
       result = fread( &(InputChannelSettings[i]), 1, sizeof(InputChannelSettings[i]) ,fpin);
       if(result!=sizeof(InputChannelSettings[i])) {
         printf("\nerror reading InputChannelSettings, aborted.");
         exit(1);
       }
-    if(print_headers) {
-      fprintf(fpout,"%% Input Channel %1d\n",i);
-      fprintf(fpout,"%%  InputModuleIndex  : %d\n",InputChannelSettings[i].InputModuleIndex);
-      fprintf(fpout,"%%  InputCFDLevel     : %d\n",InputChannelSettings[i].InputCFDLevel);
-      fprintf(fpout,"%%  InputCFDZeroCross : %d\n",InputChannelSettings[i].InputCFDZeroCross);
-      fprintf(fpout,"%%  InputOffset       : %d\n",InputChannelSettings[i].InputOffset);
-    }
+      fprintf(fpout_info,"%% Input Channel %1d\n",i);
+      fprintf(fpout_info,"%%  InputModuleIndex  : %d\n",InputChannelSettings[i].InputModuleIndex);
+      fprintf(fpout_info,"%%  InputCFDLevel     : %d\n",InputChannelSettings[i].InputCFDLevel);
+      fprintf(fpout_info,"%%  InputCFDZeroCross : %d\n",InputChannelSettings[i].InputCFDZeroCross);
+      fprintf(fpout_info,"%%  InputOffset       : %d\n",InputChannelSettings[i].InputOffset);
   }
 
-  if(print_headers) {
-    fprintf(fpout,"%% ---------------------\n");
-  }
+    fprintf(fpout_info,"%% ---------------------\n");
   for(i=0;i<MainHardwareHdr.InpChansPresent;++i) {
     result = fread( &(InputRate[i]), 1, sizeof(InputRate[i]) ,fpin);
     if(result!=sizeof(InputRate[i])) {
       fprintf(stderr,"error reading InputRates, aborted\n");
       exit(1);
     }
-    if(print_headers) {
-      fprintf(fpout,"%% Input Rate [%1d]     : %1d\n",i,InputRate[i]);
-    }
+      fprintf(fpout_info,"%% Input Rate [%1d]     : %1d\n",i,InputRate[i]);
   }
 
-  if(print_headers) {
-    fprintf(fpout,"%% ---------------------\n");
-  }
+    fprintf(fpout_info,"%% ---------------------\n");
 
   result = fread( &TTTRHdr, 1, sizeof(TTTRHdr) ,fpin);
   if(result!=sizeof(TTTRHdr)) {
@@ -296,14 +314,12 @@ int main(int argc, char* argv[]) {
     exit(1);
   }
 
-  if(print_headers) {
-    fprintf(fpout,"%% SyncRate           : %d\n",TTTRHdr.SyncRate);
-    fprintf(fpout,"%% StopAfter          : %d\n",TTTRHdr.StopAfter);
-    fprintf(fpout,"%% StopReason         : %d\n",TTTRHdr.StopReason);
-    fprintf(fpout,"%% ImgHdrSize         : %d\n",TTTRHdr.ImgHdrSize);
-    fprintf(fpout,"%% nRecords           : %llu\n",TTTRHdr.nRecords);
-    fprintf(fpout,"%% ---------------------\n");
-  }
+    fprintf(fpout_info,"%% SyncRate           : %d\n",TTTRHdr.SyncRate);
+    fprintf(fpout_info,"%% StopAfter          : %d\n",TTTRHdr.StopAfter);
+    fprintf(fpout_info,"%% StopReason         : %d\n",TTTRHdr.StopReason);
+    fprintf(fpout_info,"%% ImgHdrSize         : %d\n",TTTRHdr.ImgHdrSize);
+    fprintf(fpout_info,"%% nRecords           : %llu\n",TTTRHdr.nRecords);
+    fprintf(fpout_info,"%% ---------------------\n");
 
   //For this simple demo we skip the imaging header.
   //You will need to read it if you want to interpret an imaging file.
@@ -338,20 +354,22 @@ int main(int argc, char* argv[]) {
       // the dtime unit depends on the resolution and can also be obtained from the file header
       // fprintf(fpout,"%llu 1 %02x %llu %u\n", n, T3Rec.bits.channel, truensync, T3Rec.bits.dtime);
       if(T3Rec.bits.channel==0) {
+        fprintf(fpout_ch0,"%llu %d\n", truensync, T3Rec.bits.dtime);
         total_signal++;
         last_signal_nsync=truensync;
         last_signal_dtime=T3Rec.bits.dtime;
         if(last_signal_nsync-last_idler_nsync<=1) {
-          fprintf(fpout,"%llu %llu %llu %llu\n", last_signal_nsync, last_idler_nsync, last_signal_dtime, last_idler_dtime);
+          fprintf(fpout_coinc,"%llu %llu %llu %llu\n", last_signal_nsync, last_idler_nsync, last_signal_dtime, last_idler_dtime);
           total_coincidences++;
         }
       }
       if(T3Rec.bits.channel==1) {
+        fprintf(fpout_ch1,"%llu %d\n", truensync, T3Rec.bits.dtime);
         total_idler++;
         last_idler_nsync=truensync;
         last_idler_dtime=T3Rec.bits.dtime;
         if(last_idler_nsync-last_signal_nsync<=1) {
-          fprintf(fpout,"%llu %llu %llu %llu\n", last_signal_nsync, last_idler_nsync, last_signal_dtime, last_idler_dtime);
+          fprintf(fpout_coinc,"%llu %llu %llu %llu\n", last_signal_nsync, last_idler_nsync, last_signal_dtime, last_idler_dtime);
           total_coincidences++;
         }
       }
@@ -364,7 +382,10 @@ int main(int argc, char* argv[]) {
   fprintf(stdout,"[%llu%%] Signal %llu / Idler %llu / Coinc %llu\n\n",100*n/TTTRHdr.nRecords,total_signal,total_idler,total_coincidences);
 
   fclose(fpin);
-  fclose(fpout); 
+  fclose(fpout_coinc); 
+  fclose(fpout_ch0); 
+  fclose(fpout_ch1); 
+  fclose(fpout_info); 
 
   exit(0);
   return(0);		

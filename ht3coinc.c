@@ -1,6 +1,10 @@
-// hydraharp ht3 reader
-// by picoquant, adapted for GNU and additional features by dheera@mit.edu
-// documentation to be written ...
+// hydraharp tvo-photon coincidence detector
+// connect APDs to the first 1 ports
+// ensure coincidences occer within a +/-1 laser sync period
+// output:
+//   .ch0.out and .ch1.out are the singles (marginals)
+//   .coinc.out are the coincidence time information 
+
 #include<stdio.h>
 #include<string.h>
 #include<stddef.h>
